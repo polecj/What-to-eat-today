@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>是啊吃啥呢</title>
+    <link rel="stylesheet" href="assets/app/style.css">
+
+</head>
+
+<body class="welcome-active">
+    <div id="welcomeOverlay" class="welcome-overlay">
+        <div class="welcome-content">
+            <h1>欢迎来到这个网站！</h1>
+            <p>这里可以帮你整理想吃的选项，按类别管理待抽列表。</p>
+            <p>你可以随机抽一个答案，也可以切到标签模式，让选择过程更有一点仪式感。</p>
+            <p class="welcome-note">如果是第一次使用，进入后可以点击“教学💡”快速上手。</p>
+            <button id="enterWelcomeBtn" class="welcome-enter-btn">进入</button>
+        </div>
+    </div>
+
+    <button id="backFromTeachingBtn" class="back-from-teaching">← 返回</button>
+
+    <h1>是啊吃啥呢</h1>
+    <div id="teachingSubtitle" class="teaching-subtitle">教学页面</div>
+
+    <div class="mode-switch">
+        <button id="normalModeBtn" class="mode-btn active">普通抽取</button>
+        <button id="tagModeBtn" class="mode-btn">标签抽取</button>
+    </div>
+
+    <div class="container">
+
+        <!-- 左侧：控件区 -->
+        <div class="left-panel normal-mode-panel">
+            <!-- 添加 -->
+            <div class="row">
+                <div class="item-input-group">
+                    <button id="formatHelpBtn" class="format-help" title="输入格式说明">?</button>
+                    <span class="category-format-hint">请输入两个汉字</span>
+                    <button id="newUserGuideBtn" class="new-user-guide" title="进入教学页面">教学💡</button>
+                    <button id="neverShowGuideBtn" class="never-show-guide" title="以后不再显示新手教学提示">不再提示</button>
+                    <input id="categoryInput" class="category-input" type="text" placeholder="空则无类别">
+                    <span class="input-separator"></span>
+                    <input id="itemInput" class="name-input" type="text" placeholder="名称，回车添加" autofocus>
+                </div>
+                <button id="addBtn" class="primary">添加</button>
+            </div>
+
+            <!-- 抽取 -->
+            <button id="pickBtn" class="pick">抽一个</button>
+            <div id="result" class="result"></div>
+            <button id="toggleResultBtn" class="toggle-result">确定</button>
+            <section id="drawHistoryPanel" class="draw-history-panel collapsed">
+                <div class="draw-history-header">
+                    <strong>抽取历史</strong>
+                    <span class="draw-history-actions">
+                        <button id="toggleDrawHistoryBtn" class="toggle-history-btn">展开</button>
+                        <button id="clearDrawHistoryBtn" class="clear-history-btn">全部删除</button>
+                    </span>
+                </div>
+                <ul id="drawHistoryList" class="draw-history-list"></ul>
+            </section>
+
+            <aside id="teachingPanel" class="teaching-panel">
+                <div class="teaching-panel-card">
+                    <div id="teachingKicker" class="teaching-kicker">0</div>
+                    <h2 id="teachingTitle">欢迎进入教学页面</h2>
+                    <p id="teachingDesc">这里会用一个独立的空列表带你熟悉添加、修改、删除和导入示例。点击下一步开始操作。</p>
+                    <div class="teaching-actions">
+                        <button id="teachingPrevBtn" class="teaching-prev-btn">上一步</button>
+                        <button id="teachingNextBtn" class="teaching-next-btn">下一步</button>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        <!-- 第二种：标签抽取 -->
+        <div id="tagModePanel" class="tag-mode-panel">
+            <div class="tag-tools">
+                <button id="pauseTagsBtn" class="pause-tags">开始</button>
+                <button id="drawTagBtn" class="draw-tag">随机抽取</button>
+                <label class="motion-speed">速度 <input id="motionSpeedInput" type="range" min="1" max="8" step="0.5" value="4.5"></label>
+                <span class="tag-mode-hint">增删改条目请至普通模式</span>
+            </div>
+            <div id="tagBoard" class="tag-board"></div>
+        </div>
+
+        <!-- 右侧：待抽列表 -->
+        <div class="right-panel">
+            <div id="listHeader" class="list-header">
+                <strong><span class="arrow">▼</span>待抽列表</strong>
+                <span class="header-right">
+                    <button class="draw-scope-all-btn active" id="drawScopeAllBtn" title="抽取范围全选 / 全不选">全选</button>
+                    <button class="expand-all-btn" id="expandAllBtn" title="全部展开">全展开</button>
+                    <span class="settings-wrap menu-wrap">
+                        <button class="settings-btn menu-btn" id="settingsBtn" title="列表设置">☰</button>
+                        <span id="settingsMenu" class="settings-menu menu-dropdown">
+                            <button class="bulk-menu-btn menu-item" id="bulkMenuBtn" title="批量编辑分类">批量编辑</button>
+                            <span class="menu-divider"></span>
+                            <button class="import-btn menu-item" id="importBtn" title="导入列表">导入</button>
+                            <button class="export-btn menu-item" id="exportBtn" title="导出列表">导出</button>
+                        </span>
+                    </span>
+                    <span id="count" class="count">共 0 项</span>
+                </span>
+            </div>
+            <div id="listBody" class="list-body">
+                <input id="listSearchInput" class="list-search" type="text" placeholder="搜索待抽项目">
+                <ul id="list"></ul>
+            </div>
+            <div class="list-footer">
+                <span id="exportStatus" class="export-status clean">已保存</span>
+            </div>
+        </div>
+
+    </div>
+
+    <input id="importFileInput" type="file" accept="application/json,.json" hidden>
+
+    <div id="exportReminder" class="export-reminder">列表已更改，可导出备份</div>
+    <div id="importUndoPrompt" class="import-undo-prompt">
+        <span>已导入新列表，抽取前可撤回。</span>
+        <button id="undoImportBtn">撤回导入</button>
+    </div>
+
+    <div id="importDialogOverlay" class="import-dialog-overlay">
+        <div class="import-dialog-card">
+            <h2>导入待抽列表</h2>
+            <p id="importDialogText">请选择导入方式。</p>
+            <div class="import-dialog-actions">
+                <button id="mergeImportBtn">合并导入</button>
+                <button id="overwriteImportBtn" class="danger">覆盖导入</button>
+                <button id="cancelImportBtn">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="bulkEditOverlay" class="bulk-edit-overlay">
+        <div class="bulk-edit-card">
+            <h2 id="bulkEditTitle">批量编辑</h2>
+            <p>每行一个名称，只会修改当前类别内的项目，不会更改类别。</p>
+            <textarea id="bulkEditTextarea" spellcheck="false"></textarea>
+            <div class="bulk-edit-actions">
+                <button id="saveBulkEditBtn" class="primary">保存</button>
+                <button id="cancelBulkEditBtn">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="formatHelpOverlay" class="format-help-overlay">
+        <div class="format-help-card">
+            <button id="formatHelpClose" class="format-help-close" title="关闭">×</button>
+            <h2>输入格式说明</h2>
+            <p>添加项目时，输入框分为“类别”和“名称”两部分。</p>
+            <p><strong>类别</strong> 最多输入两个汉字；不填也没关系，项目会放到 <strong>未分类</strong> 里。</p>
+            <p><strong>名称</strong> 是实际待抽内容。保存时如果填写了类别，系统会自动保存为 <strong>类别 名称</strong>，中间自动加一个空格。</p>
+            <p>例如类别填 <strong>康一</strong>、名称填 <strong>牛肉面</strong>，会保存为 <strong>康一 牛肉面</strong>，并归到 <strong>康一</strong> 类。</p>
+            <p>同一类别的项目会自动放到同一类里。</p>
+        </div>
+    </div>
+
+    <div id="teachingMockImportOverlay" class="mock-file-overlay">
+        <div class="mock-file-window">
+            <div class="mock-file-title">选择要导入的列表文件</div>
+            <div class="mock-file-path">此电脑 &gt; 下载 &gt; WhatToEat</div>
+            <div class="mock-file-list">
+                <button id="mockExampleFileBtn" class="mock-file-item" title="选择示例列表文件">
+                    <span class="mock-file-icon">JSON</span>
+                    <span>
+                        <strong>example-list.json</strong>
+                        <small>示例待抽列表 · 4 个项目</small>
+                    </span>
+                </button>
+                <div class="mock-file-item muted">
+                    <span class="mock-file-icon">TXT</span>
+                    <span>
+                        <strong>readme.txt</strong>
+                        <small>说明文件，不用于导入</small>
+                    </span>
+                </div>
+            </div>
+            <div class="mock-file-actions">
+                <button id="cancelMockImportBtn">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="teachingExitOverlay" class="center-modal">
+        <div class="modal-card">
+            <div class="modal-title">退出教学？</div>
+            <div class="modal-desc">教学进度将不会保留，是否继续？</div>
+            <div class="modal-btn-row">
+                <button id="confirmTeachingExitBtn" class="modal-pill-btn danger">继续退出</button>
+                <button id="cancelTeachingExitBtn" class="modal-pill-btn">留在教学</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="tagRevealOverlay" class="tag-reveal-overlay">
+        <div id="tagRevealCard" class="tag-reveal-card"></div>
+    </div>
+
+    <div class="version-label">060918</div>
+
+    <script src="assets/app/app.js"></script>
+
+
+</body>
+
+</html>
