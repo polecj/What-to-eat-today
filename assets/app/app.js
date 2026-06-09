@@ -105,6 +105,7 @@ let tagDrawRunning = false;
 let pendingImportData = null;
 let undoImportState = null;
 let exportReminderTimer = null;
+let toastTimer = null;
 let hasUnsavedExport = false;
 let listSearchQuery = '';
 let bulkEditCategory = '';
@@ -797,6 +798,15 @@ function showExportReminder() {
     exportReminderTimer = setTimeout(() => reminder.classList.remove('show'), 2600);
 }
 
+function showToast(msg) {
+    var el = document.getElementById('toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2000);
+}
+
 function updateExportStatus() {
     const status = document.getElementById('exportStatus');
     if (!status) return;
@@ -977,6 +987,97 @@ function cancelImport() {
     document.getElementById('importDialogOverlay').classList.remove('show');
 }
 
+// ---------- 分享码 ----------
+
+function toBase64(str) {
+    var bytes = new TextEncoder().encode(str);
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+}
+
+function fromBase64(base64) {
+    var bin = atob(base64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+}
+
+function encodeShareCode(jsonText) {
+    return 'WTE:' + toBase64(jsonText);
+}
+
+function decodeShareCode(code) {
+    var trimmed = (code || '').trim();
+    if (!trimmed.startsWith('WTE:')) {
+        throw new Error('分享码格式不正确');
+    }
+    try {
+        return fromBase64(trimmed.slice(4));
+    } catch (e) {
+        throw new Error('分享码解析失败，请检查是否完整复制');
+    }
+}
+
+function openShareCodeView() {
+    var code = encodeShareCode(JSON.stringify({ items: items, categoryOrder: categoryOrder }));
+    var textarea = document.getElementById('shareCodeViewTextarea');
+    textarea.value = code;
+    document.getElementById('shareCodeViewOverlay').classList.add('show');
+    textarea.select();
+    try {
+        navigator.clipboard.writeText(code).then(function () {
+            showToast('已复制到剪贴板');
+        }).catch(function () {});
+    } catch (e) {}
+    markListExported();
+}
+
+function copyShareCode() {
+    var textarea = document.getElementById('shareCodeViewTextarea');
+    textarea.select();
+    try {
+        navigator.clipboard.writeText(textarea.value).then(function () {
+            showToast('已复制到剪贴板');
+        }).catch(function () { showToast('复制失败，请手动全选复制'); });
+    } catch (e) { showToast('复制失败，请手动全选复制'); }
+}
+
+function closeShareCodeView() {
+    document.getElementById('shareCodeViewOverlay').classList.remove('show');
+}
+
+function openShareCodeImport() {
+    document.getElementById('shareCodeImportTextarea').value = '';
+    document.getElementById('shareCodeImportError').classList.remove('show');
+    document.getElementById('shareCodeImportOverlay').classList.add('show');
+    setTimeout(function () {
+        document.getElementById('shareCodeImportTextarea').focus();
+    }, 150);
+}
+
+function closeShareCodeImport() {
+    document.getElementById('shareCodeImportOverlay').classList.remove('show');
+}
+
+function handleShareCodeImport() {
+    var errorEl = document.getElementById('shareCodeImportError');
+    var raw = document.getElementById('shareCodeImportTextarea').value;
+    errorEl.classList.remove('show');
+    try {
+        var decoded = decodeShareCode(raw);
+        pendingImportData = parseImportData(decoded);
+        closeShareCodeImport();
+        document.getElementById('importDialogText').textContent = '将导入 ' + pendingImportData.items.length + ' 项。请选择导入方式。';
+        document.getElementById('importDialogOverlay').classList.add('show');
+    } catch (err) {
+        errorEl.textContent = err.message || '导入失败';
+        errorEl.classList.add('show');
+    }
+}
+
+// ---------- 分享码结束 ----------
+
 function getAllCategories() {
     return buildGroups().map(group => group.category);
 }
@@ -1081,7 +1182,7 @@ function render() {
     count.textContent = `共 ${items.length} 项`;
 
     if (items.length === 0) {
-        list.innerHTML = '<div class="empty"><strong>还没有项目</strong><span>先添加几个选项，或点击“导入”使用别人分享的列表。</span></div>';
+        list.innerHTML = '<div class=”empty”><strong>还没有项目</strong><span>先添加几个选项，或点击”导入JSON”使用别人分享的列表。</span></div>';
         updateExpandAllButton();
         return;
     }
@@ -1175,6 +1276,7 @@ ${collapsed ? '' : group.items.map(({ item, index }) => `
             items.splice(i, 1);
             sortItems(false);
             tagLayout = [];
+            suppressNextListAnimation = true;
             render();
             if (document.body.classList.contains('teaching-mode')) {
                 setTeachingStep(teachingStep);
@@ -1896,7 +1998,7 @@ function setTeachingStep(step) {
         closeTeachingInlineEdit();
         kicker.textContent = '7';
         title.textContent = '模拟导入分享列表';
-        desc.innerHTML = '导入适合接收别人分享的待抽列表，也方便在不同设备间迁移。这里用模拟窗口演示：请先点击待抽列表右上角的 <strong>☰</strong>，再点击 <strong>导入</strong>，随后选择金光提示的 <strong>example-list.json</strong>。';
+        desc.innerHTML = '导入适合接收别人分享的待抽列表，也方便在不同设备间迁移。这里用模拟窗口演示：请先点击待抽列表右上角的 <strong>☰</strong>，再点击 <strong>导入JSON</strong>，随后选择金光提示的 <strong>example-list.json</strong>。';
         nextBtn.textContent = '下一步';
         if (!teachingMockImportDone) {
             document.getElementById('settingsBtn')?.classList.add('teaching-highlight');
@@ -1967,7 +2069,7 @@ function setTeachingStep(step) {
         const features = [
             { key: 'scope', label: '抽取范围', text: '每个分类右侧的勾选框表示是否参与抽取；取消勾选后，普通抽取不会抽到该分类，标签模式中也会变灰不可点按。右上角的 <strong>全选</strong> 可以快速全选 / 全不选。' },
             { key: 'rename', label: '类别改名', text: '分类标题右侧的 <strong>改名</strong> 可以重命名整个分类。输入仍需是两个汉字，分类内项目会一起换到新类别。' },
-            { key: 'export', label: '导出备份', text: '列表整理好后，可以从右上角菜单导出 JSON 文件，之后需要迁移或备份时更安心。' }
+            { key: 'export', label: '导出备份', text: '列表整理好后，可以从右上角菜单导出JSON，之后需要迁移或备份时更安心。' }
         ];
         kicker.textContent = '13';
         title.textContent = '列表管理功能';
@@ -2305,6 +2407,18 @@ document.getElementById('importBtn').addEventListener('click', function () {
     }
     openImportFile();
 });
+document.getElementById('shareCodeGenBtn').addEventListener('click', function (e) {
+    e.stopPropagation();
+    document.getElementById('settingsMenu').classList.remove('open');
+    this.closest('.settings-wrap').classList.remove('open');
+    openShareCodeView();
+});
+document.getElementById('shareCodeImpBtn').addEventListener('click', function (e) {
+    e.stopPropagation();
+    document.getElementById('settingsMenu').classList.remove('open');
+    this.closest('.settings-wrap').classList.remove('open');
+    openShareCodeImport();
+});
 document.getElementById('settingsBtn').addEventListener('click', function (e) {
     e.stopPropagation();
     const menu = document.getElementById('settingsMenu');
@@ -2327,6 +2441,10 @@ document.getElementById('cancelImportBtn').addEventListener('click', cancelImpor
 document.getElementById('importDialogOverlay').addEventListener('click', function (e) {
     if (e.target === this) cancelImport();
 });
+document.getElementById('shareCodeViewConfirmBtn').addEventListener('click', closeShareCodeView);
+document.getElementById('shareCodeViewCopyBtn').addEventListener('click', copyShareCode);
+document.getElementById('shareCodeImportConfirmBtn').addEventListener('click', handleShareCodeImport);
+document.getElementById('shareCodeImportCancelBtn').addEventListener('click', closeShareCodeImport);
 document.getElementById('listSearchInput').addEventListener('input', function () {
     listSearchQuery = this.value.trim().toLowerCase();
     render();

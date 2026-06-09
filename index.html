@@ -99,8 +99,11 @@
                         <span id="settingsMenu" class="settings-menu menu-dropdown">
                             <button class="bulk-menu-btn menu-item" id="bulkMenuBtn" title="批量编辑分类">批量编辑</button>
                             <span class="menu-divider"></span>
-                            <button class="import-btn menu-item" id="importBtn" title="导入列表">导入</button>
-                            <button class="export-btn menu-item" id="exportBtn" title="导出列表">导出</button>
+                            <button class="import-btn menu-item" id="importBtn" title="导入JSON文件">导入JSON</button>
+                            <button class="export-btn menu-item" id="exportBtn" title="导出JSON文件">导出JSON</button>
+                            <span class="menu-divider"></span>
+                            <button class="share-code-gen-btn menu-item" id="shareCodeGenBtn" title="生成分享码">生成分享码</button>
+                            <button class="share-code-imp-btn menu-item" id="shareCodeImpBtn" title="导入分享码">导入分享码</button>
                         </span>
                     </span>
                     <span id="count" class="count">共 0 项</span>
@@ -133,6 +136,30 @@
                 <button id="mergeImportBtn">合并导入</button>
                 <button id="overwriteImportBtn" class="danger">覆盖导入</button>
                 <button id="cancelImportBtn">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="shareCodeViewOverlay" class="share-code-overlay">
+        <div class="share-code-card">
+            <h2>分享码</h2>
+            <p>分享码已生成，发送给其他设备即可导入此列表</p>
+            <textarea id="shareCodeViewTextarea" readonly spellcheck="false"></textarea>
+            <div class="share-code-actions">
+                <button id="shareCodeViewCopyBtn">📋 复制</button>
+                <button id="shareCodeViewConfirmBtn">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="shareCodeImportOverlay" class="share-code-overlay">
+        <div class="share-code-card">
+            <h2>导入分享码</h2>
+            <textarea id="shareCodeImportTextarea" placeholder="请粘贴分享码" spellcheck="false"></textarea>
+            <p id="shareCodeImportError" class="share-code-error"></p>
+            <div class="share-code-actions">
+                <button id="shareCodeImportConfirmBtn">确认</button>
+                <button id="shareCodeImportCancelBtn">取消</button>
             </div>
         </div>
     </div>
@@ -202,7 +229,9 @@
         <div id="tagRevealCard" class="tag-reveal-card"></div>
     </div>
 
-    <div class="version-label">060918</div>
+    <div id="toast" class="toast"></div>
+
+    <div class="version-label">060923</div>
 
     <script src="assets/app/app.js"></script>
 
