@@ -1756,6 +1756,7 @@ function isTeachingStepComplete() {
     if (teachingStep === 13) return true;
     if (teachingStep === 14) return true;
     if (teachingStep === 15) return true;
+    if (teachingStep === 16) return true;
     return true;
 }
 
@@ -2008,7 +2009,25 @@ function setTeachingStep(step) {
     }
 
     if (step === 8) {
+        closeTeachingInlineEdit();
+        var settingsWrap = document.querySelector('.settings-wrap');
+        var settingsMenu = document.getElementById('settingsMenu');
+        settingsWrap?.classList.remove('open');
+        settingsMenu?.classList.remove('open');
+        settingsWrap?.classList.add('open');
+        settingsMenu?.classList.add('open');
+        document.getElementById('settingsBtn')?.classList.add('teaching-highlight');
+        document.getElementById('shareCodeGenBtn')?.classList.add('teaching-highlight');
         kicker.textContent = '8';
+        title.textContent = '认识分享码';
+        desc.innerHTML = '除了导出 JSON 文件，也可以生成一段分享码，复制到其他设备就能导入同样的列表。分享码是一段纯文本，方便通过聊天软件发送以及备份。';
+        nextBtn.textContent = '下一步';
+        updateTeachingNextState();
+        return;
+    }
+
+    if (step === 9) {
+        kicker.textContent = '9';
         title.textContent = '基础操作完成';
         desc.innerHTML = '至此你已经学会了所有基础操作。你可以从左上角退出教学模式，也可以继续了解更多小功能。';
         nextBtn.textContent = '下一步';
@@ -2017,8 +2036,8 @@ function setTeachingStep(step) {
         return;
     }
 
-    if (step === 9) {
-        kicker.textContent = '9';
+    if (step === 10) {
+        kicker.textContent = '10';
         title.textContent = '手动调整顺序';
         desc.innerHTML = '你可以拖动待抽列表里的分类或同类别条目，手动调整顺序。拖动时，蓝色横线会提示即将插入的位置。试试看也没关系，不操作也可以继续。';
         nextBtn.textContent = '下一步';
@@ -2027,8 +2046,8 @@ function setTeachingStep(step) {
         return;
     }
 
-    if (step === 10) {
-        kicker.textContent = '10';
+    if (step === 11) {
+        kicker.textContent = '11';
         title.textContent = '修改一个条目';
         desc.innerHTML = '点击任意条目右侧的编辑图标，就可以修改名称或类别。你可以试着把 <strong>一食 兰州拉面</strong> 改成 <strong>一食 牛肉面</strong>，也可以直接下一步。';
         nextBtn.textContent = '下一步';
@@ -2039,8 +2058,8 @@ function setTeachingStep(step) {
         return;
     }
 
-    if (step === 11) {
-        kicker.textContent = '11';
+    if (step === 12) {
+        kicker.textContent = '12';
         title.textContent = '类别也可以修改';
         desc.innerHTML = '编辑条目时，左侧类别框也可以修改。只要格式正确，保存后条目会按照新的类别自动进入对应分组。你可以试着改，也可以直接下一步。';
         nextBtn.textContent = '下一步';
@@ -2051,9 +2070,9 @@ function setTeachingStep(step) {
         return;
     }
 
-    if (step === 12) {
+    if (step === 13) {
         closeTeachingInlineEdit();
-        kicker.textContent = '12';
+        kicker.textContent = '13';
         title.textContent = '删除一个条目';
         desc.innerHTML = '点击 <strong>瑞幸咖啡</strong> 右侧的删除按钮，可以把它从待抽列表中移除。你可以试试看，也可以直接下一步。';
         nextBtn.textContent = '下一步';
@@ -2064,14 +2083,14 @@ function setTeachingStep(step) {
         return;
     }
 
-    if (step === 13) {
+    if (step === 14) {
         closeTeachingMockImport();
         const features = [
             { key: 'scope', label: '抽取范围', text: '每个分类右侧的勾选框表示是否参与抽取；取消勾选后，普通抽取不会抽到该分类，标签模式中也会变灰不可点按。右上角的 <strong>全选</strong> 可以快速全选 / 全不选。' },
             { key: 'rename', label: '类别改名', text: '分类标题右侧的 <strong>改名</strong> 可以重命名整个分类。输入仍需是两个汉字，分类内项目会一起换到新类别。' },
             { key: 'export', label: '导出备份', text: '列表整理好后，可以从右上角菜单导出JSON，之后需要迁移或备份时更安心。' }
         ];
-        kicker.textContent = '13';
+        kicker.textContent = '14';
         title.textContent = '列表管理功能';
         desc.innerHTML = renderTeachingFeatureText(features);
         nextBtn.textContent = teachingFeatureIndex >= features.length - 1 ? '下一步' : '继续';
@@ -2080,12 +2099,12 @@ function setTeachingStep(step) {
         return;
     }
 
-    if (step === 14) {
+    if (step === 15) {
         const features = [
             { key: 'search', label: '搜索', text: '可以用搜索框过滤待抽列表，快速找到想看的项目。' },
             { key: 'expand', label: '全展开 / 全收起', text: '可以一键展开或收起所有分类，整理列表视图。' }
         ];
-        kicker.textContent = '14';
+        kicker.textContent = '15';
         title.textContent = '视图辅助功能';
         desc.innerHTML = renderTeachingFeatureText(features);
         nextBtn.textContent = teachingFeatureIndex >= features.length - 1 ? '下一步' : '继续';
@@ -2096,7 +2115,7 @@ function setTeachingStep(step) {
 
     closeTeachingInlineEdit();
     closeTeachingMockImport();
-    kicker.textContent = '15';
+    kicker.textContent = '16';
     title.textContent = '教学完成';
     desc.innerHTML = '教学到这里就结束了。愿你以后永远不愁吃什么，打开列表就能抽到今天的答案。';
     nextBtn.textContent = '完成';
@@ -2333,33 +2352,33 @@ document.getElementById('teachingExitOverlay').addEventListener('click', functio
 });
 document.getElementById('teachingNextBtn').addEventListener('click', function () {
     if (teachingStep === teachingLatestStep && !isTeachingStepComplete()) return;
-    if (teachingStep === 13 && teachingFeatureIndex < 2) {
-        teachingFeatureIndex++;
-        setTeachingStep(13);
-        return;
-    }
-    if (teachingStep === 14 && teachingFeatureIndex < 1) {
+    if (teachingStep === 14 && teachingFeatureIndex < 2) {
         teachingFeatureIndex++;
         setTeachingStep(14);
         return;
     }
-    if (teachingStep === 15) {
+    if (teachingStep === 15 && teachingFeatureIndex < 1) {
+        teachingFeatureIndex++;
+        setTeachingStep(15);
+        return;
+    }
+    if (teachingStep === 16) {
         transitionToHomeMode();
         return;
     }
-    if (teachingStep === 13 || teachingStep === 14) teachingFeatureIndex = 0;
+    if (teachingStep === 14 || teachingStep === 15) teachingFeatureIndex = 0;
     teachingLatestStep = Math.max(teachingLatestStep, teachingStep + 1);
     setTeachingStep(teachingStep + 1);
 });
 document.getElementById('teachingPrevBtn').addEventListener('click', function () {
-    if (teachingStep === 13 && teachingFeatureIndex > 0) {
-        teachingFeatureIndex--;
-        setTeachingStep(13);
-        return;
-    }
     if (teachingStep === 14 && teachingFeatureIndex > 0) {
         teachingFeatureIndex--;
         setTeachingStep(14);
+        return;
+    }
+    if (teachingStep === 15 && teachingFeatureIndex > 0) {
+        teachingFeatureIndex--;
+        setTeachingStep(15);
         return;
     }
     teachingFeatureIndex = 0;
@@ -2408,12 +2427,14 @@ document.getElementById('importBtn').addEventListener('click', function () {
     openImportFile();
 });
 document.getElementById('shareCodeGenBtn').addEventListener('click', function (e) {
+    if (document.body.classList.contains('teaching-mode')) return;
     e.stopPropagation();
     document.getElementById('settingsMenu').classList.remove('open');
     this.closest('.settings-wrap').classList.remove('open');
     openShareCodeView();
 });
 document.getElementById('shareCodeImpBtn').addEventListener('click', function (e) {
+    if (document.body.classList.contains('teaching-mode')) return;
     e.stopPropagation();
     document.getElementById('settingsMenu').classList.remove('open');
     this.closest('.settings-wrap').classList.remove('open');
