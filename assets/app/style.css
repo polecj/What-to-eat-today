@@ -2534,9 +2534,20 @@ li.editing .item-drag-handle {
 }
 
 /* ===== 响应式：窄屏时上下排列 ===== */
+.backup-hint {
+    text-align: center;
+    font-size: 12px;
+    color: #8899bb;
+    margin-top: 18px;
+    padding: 0 8px;
+    opacity: 0.75;
+}
+
 @media (max-width: 640px) {
     body {
         padding: 12px 12px;
+        overflow-y: auto;
+        overflow-x: hidden;
     }
 
     .container {
