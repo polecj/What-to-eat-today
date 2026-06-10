@@ -1746,7 +1746,7 @@ function updateTeachingInputLock() {
     }
 
     const editableCurrentStep = teachingStep === teachingLatestStep;
-    categoryInput.disabled = !(editableCurrentStep && teachingStep === 1 && !isTeachingStepComplete());
+    categoryInput.disabled = !(editableCurrentStep && teachingStep === 1);
     nameInput.disabled = !(editableCurrentStep && (teachingStep === 2 || teachingStep === 3) && !isTeachingStepComplete());
     if (addBtn) addBtn.disabled = !(editableCurrentStep && teachingStep === 3 && !isTeachingStepComplete());
     if (pickBtn) pickBtn.disabled = !(editableCurrentStep && teachingStep === 5 && !isTeachingStepComplete());
@@ -1860,11 +1860,11 @@ function applyTeachingMockImport() {
     closeTeachingMockImport();
     pendingImportData = getTeachingMockImportData();
     const dialogText = document.getElementById('importDialogText');
-    dialogText.innerHTML = `将导入 <strong>${pendingImportData.items.length} 项</strong>。<br><strong>合并导入</strong>：保留当前教学列表，只把文件里的新项目追加进来。<br><strong>覆盖导入</strong>：清空当前列表，完全换成文件里的内容，适合恢复备份。<br>为了演示“接收一整份分享列表”的效果，这里请点击 <strong>覆盖导入</strong>。`;
+    dialogText.innerHTML = `将导入 <strong>${pendingImportData.items.length} 项</strong>。<br><strong>合并导入</strong>：保留当前教学列表，只把文件里的新项目追加进来，适合接收别人分享的补充列表。<br><strong>覆盖导入</strong>：清空当前列表，完全换成文件里的内容，适合恢复备份。<br>这里请点击 <strong>合并导入</strong>，看看导入内容如何补充到现有列表。`;
     document.getElementById('importDialogOverlay').classList.add('show');
     const mergeBtn = document.getElementById('mergeImportBtn');
-    if (mergeBtn) mergeBtn.disabled = true;
-    document.getElementById('overwriteImportBtn')?.classList.add('teaching-highlight');
+    if (mergeBtn) mergeBtn.disabled = false;
+    mergeBtn?.classList.add('teaching-highlight');
 }
 
 function completeTeachingMockImport() {
@@ -2312,6 +2312,7 @@ function setupSplitInput(categoryId, nameId, submitFn) {
 
     categoryInput.addEventListener('blur', function () {
         validateCategoryInput(this);
+        updateTeachingNextState();
     });
 
     categoryInput.addEventListener('keydown', function (e) {
@@ -2626,8 +2627,9 @@ document.getElementById('drawScopeAllBtn').addEventListener('click', function (e
     }
 
     function getDragTargetFromPress(target) {
-        if (!target.closest('.drag-handle') && target.closest('button, input, textarea, select, label')) return null;
-        return getDragTargetFromHandle(target);
+        const handle = target.closest('.drag-handle');
+        if (!handle) return null;
+        return getDragTargetFromHandle(handle);
     }
 
     function markDragOver(clientY, target) {
