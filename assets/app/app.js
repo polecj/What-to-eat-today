@@ -1009,7 +1009,7 @@ function encodeShareCode(jsonText) {
 
 function decodeShareCode(code) {
     var trimmed = (code || '').trim();
-    if (!trimmed.startsWith('WTE:')) {
+    if (trimmed.slice(0, 4).toUpperCase() !== 'WTE:') {
         throw new Error('分享码格式不正确');
     }
     try {
