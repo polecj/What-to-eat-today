@@ -2509,6 +2509,15 @@ li .item-text {
     word-break: break-all;
 }
 
+li .item-text .pick-count,
+li .category-title .pick-count {
+    margin-left: 8px;
+    font-size: 11px;
+    color: #8f9bb3;
+    font-weight: 400;
+    white-space: nowrap;
+}
+
 li .item-edit-group {
     flex: 1;
     min-width: 0;

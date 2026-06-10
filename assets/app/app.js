@@ -3,6 +3,7 @@ const CATEGORY_ORDER_KEY = 'picker_category_order';
 const COLLAPSED_CATEGORIES_KEY = 'picker_collapsed_categories';
 const UNCHECKED_CATEGORIES_KEY = 'picker_unchecked_categories';
 const DRAW_HISTORY_KEY = 'picker_draw_history';
+const PICK_COUNTS_KEY = 'picker_pick_counts';
 const GUIDE_PROMPT_DISABLED_KEY = 'picker_guide_prompt_disabled';
 const UNCATEGORIZED = '未分类';
 
@@ -77,6 +78,35 @@ function saveDrawHistory(history) {
     localStorage.setItem(DRAW_HISTORY_KEY, JSON.stringify(history));
 }
 
+function loadPickCounts() {
+    try {
+        const raw = localStorage.getItem(PICK_COUNTS_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+    } catch { return {}; }
+}
+
+function savePickCounts(counts) {
+    if (isTeachingStorageActive()) return;
+    localStorage.setItem(PICK_COUNTS_KEY, JSON.stringify(counts));
+}
+
+function incrementPickCount(item) {
+    if (!item || isTeachingStorageActive()) return;
+    pickCounts[item] = (pickCounts[item] || 0) + 1;
+    savePickCounts(pickCounts);
+    render();
+}
+
+function resetPickCounts() {
+    pickCounts = {};
+    savePickCounts(pickCounts);
+    render();
+    if (currentMode === 'tags') renderTagBoard();
+    showToast('统计数据已归零');
+}
+
 function isGuidePromptDisabled() {
     return localStorage.getItem(GUIDE_PROMPT_DISABLED_KEY) === '1';
 }
@@ -111,6 +141,8 @@ let listSearchQuery = '';
 let bulkEditCategory = '';
 let drawHistory = loadDrawHistory();
 let drawHistoryCollapsed = true;
+let pickCounts = loadPickCounts();
+let categoriesToAnimate = new Set();
 let teachingItems = [];
 let teachingCategoryOrder = [];
 let savedMainState = null;
@@ -356,6 +388,7 @@ function toggleTagCategory(category) {
         });
     } else {
         tagExpandedCategories.push(category);
+        categoriesToAnimate.add(category);
         render();
     }
 }
@@ -393,6 +426,7 @@ function toggleCategory(category) {
         autoExpandedCategory = '';
     }
     saveCollapsedCategories(collapsedCategories);
+    categoriesToAnimate.add(category);
     render();
 }
 
@@ -752,7 +786,7 @@ function revealTag(index, shouldRecord = false) {
         card.style.transform = layout ? `rotate(${layout.rotate}deg)` : '';
         overlay.classList.remove('dimming');
         overlay.classList.add('show');
-        if (shouldRecord) addDrawHistory(items[index] || '');
+        if (shouldRecord) { addDrawHistory(items[index] || ''); incrementPickCount(items[index] || ''); }
     }
 
     if (!sourceTag) {
@@ -1197,6 +1231,8 @@ function render() {
     const list = document.getElementById('list');
     const count = document.getElementById('count');
     const skipListAnimation = suppressNextListAnimation;
+    const animateCategories = new Set(categoriesToAnimate);
+    categoriesToAnimate.clear();
     suppressNextListAnimation = false;
     count.textContent = `共 ${items.length} 项`;
 
@@ -1229,7 +1265,7 @@ function render() {
 <li class="category${collapsed ? ' collapsed' : ''}${drawEnabled ? '' : ' draw-disabled'}" draggable="true" data-category="${escapeAttribute(group.category)}">
   <span class="drag-handle" title="拖动调整分类顺序">⠿</span>
   <span class="category-arrow">${collapsed ? '▶' : '▼'}</span>
-  <span class="category-title">${escapeHtml(group.category)}</span>
+  <span class="category-title">${escapeHtml(group.category)}<span class="pick-count">${getCategoryPickTotal(group.items) > 0 ? ` 抽中${getCategoryPickTotal(group.items)}次` : ''}</span></span>
   <label class="category-draw-scope" title="是否纳入抽取范围">
     <input class="category-draw-checkbox" type="checkbox" data-category="${escapeAttribute(group.category)}" ${drawEnabled ? 'checked' : ''}>
     <span>抽取</span>
@@ -1237,14 +1273,16 @@ function render() {
   ${currentMode === 'tags' ? '' : `<button class="rename-category-btn" data-category="${escapeAttribute(group.category)}" title="重命名分类">改名</button>`}
   <span class="category-count">${group.items.length} 项</span>
 </li>
-${collapsed ? '' : group.items.map(({ item, index }) => `
-<li class="item-row${skipListAnimation ? ' no-enter-animation' : ''}${drawEnabled ? '' : ' draw-disabled'}" draggable="true" data-index="${index}" data-category="${escapeAttribute(group.category)}">
+${collapsed ? '' : group.items.map(({ item, index }) => {
+        const skipItemAnimation = skipListAnimation || !animateCategories.has(group.category);
+        return `
+<li class="item-row${skipItemAnimation ? ' no-enter-animation' : ''}${drawEnabled ? '' : ' draw-disabled'}" draggable="true" data-index="${index}" data-category="${escapeAttribute(group.category)}">
   <span class="drag-handle item-drag-handle" title="拖动调整项目顺序">⠿</span>
-  <span class="item-text">${escapeHtml(item)}</span>
+  <span class="item-text">${escapeHtml(item)}<span class="pick-count">${formatPickCount(item)}</span></span>
   ${currentMode === 'tags' ? '' : `<button class="edit" data-index="${index}" title="编辑">✎</button>
   <button class="del" data-index="${index}" title="删除">✕</button>`}
 </li>
-      `).join('')}
+      `; }).join('')}
       `;
     }).join('');
 
@@ -1306,6 +1344,15 @@ ${collapsed ? '' : group.items.map(({ item, index }) => `
     });
 
     updateExpandAllButton();
+}
+
+function getCategoryPickTotal(categoryItems) {
+    return categoryItems.reduce((sum, { item }) => sum + (pickCounts[item] || 0), 0);
+}
+
+function formatPickCount(item) {
+    const count = pickCounts[item] || 0;
+    return count > 0 ? ` 抽中${count}次` : '';
 }
 
 function escapeHtml(str) {
@@ -1501,6 +1548,7 @@ function addValueToItems(categoryInput, nameInput) {
     categoryInput.value = '';
     nameInput.value = '';
     categoryInput.focus();
+    categoriesToAnimate.add(getItemCategory(val));
     render();
     if (document.body.classList.contains('teaching-mode')) {
         setTeachingStep(teachingStep);
@@ -1696,10 +1744,12 @@ function pick() {
             // 最终结果
             setResultText('🎯 ' + items[lastIdx], true, 260);
             addDrawHistory(items[lastIdx]);
+            incrementPickCount(items[lastIdx]);
             setTimeout(clearResultBlur, 120);
             const category = getItemCategory(items[lastIdx]);
             if (expandCategory(category)) {
                 autoExpandedCategory = category;
+                categoriesToAnimate.add(category);
                 render();
             }
             const li = document.querySelector(`li.item-row[data-index="${lastIdx}"]`);
@@ -2488,6 +2538,13 @@ document.getElementById('settingsBtn').addEventListener('click', function (e) {
     if (document.body.classList.contains('teaching-import-step') && !teachingMockImportDone) {
         document.getElementById('importBtn')?.classList.toggle('teaching-highlight', isOpen);
     }
+});
+document.getElementById('resetStatsBtn').addEventListener('click', function (e) {
+    if (document.body.classList.contains('teaching-mode')) return;
+    e.stopPropagation();
+    document.getElementById('settingsMenu').classList.remove('open');
+    this.closest('.settings-wrap').classList.remove('open');
+    resetPickCounts();
 });
 document.getElementById('bulkMenuBtn').addEventListener('click', function (e) {
     e.stopPropagation();
