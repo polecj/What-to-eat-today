@@ -2240,7 +2240,7 @@ li {
     border: 1px solid #2a2a4a;
     border-radius: 4px;
     margin-bottom: 4px;
-    transition: opacity 0.15s, background 0.15s, border-color 0.15s;
+    transition: opacity 0.15s, background 0.15s, border-color 0.15s, transform 0.15s, box-shadow 0.15s;
 }
 
 li:nth-child(odd) {
@@ -2408,7 +2408,17 @@ li .drag-handle:active {
 
 /* 拖拽状态 */
 li.dragging {
-    opacity: 0.35;
+    animation: none !important;
+    transform: scale(0.92) !important;
+    opacity: 0.72;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.36);
+}
+
+li.touch-dragging {
+    animation: none !important;
+    transform: scale(0.92) !important;
+    opacity: 0.72;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.36);
 }
 
 li.drag-insert-before,
@@ -2545,15 +2555,23 @@ li.editing .item-drag-handle {
 }
 
 @media (max-width: 640px) {
+    html,
     body {
-        padding: 12px 12px;
+        height: auto;
+        min-height: 100%;
         overflow-y: auto;
         overflow-x: hidden;
+    }
+
+    body {
+        padding: 12px 12px;
     }
 
     .container {
         flex-direction: column;
         gap: 16px;
+        flex: 0 0 auto;
+        min-height: 0;
         overflow: visible;
     }
 
@@ -2573,14 +2591,14 @@ li.editing .item-drag-handle {
         padding-top: 0;
     }
 
+    body.teaching-mode .row {
+        margin-top: 72px;
+    }
+
     body.teaching-mode .right-panel {
         flex: 0 0 auto;
         height: auto;
-        min-height: 360px;
-    }
-
-    body.teaching-mode .right-panel .list-body {
-        max-height: 52vh;
+        min-height: 0;
     }
 
     .row {
@@ -2600,8 +2618,13 @@ li.editing .item-drag-handle {
     }
 
     .never-show-guide {
-        right: 78px;
-        top: -32px;
+        right: 0;
+        top: -92px;
+        z-index: 2;
+    }
+
+    body.guide-attention .never-show-guide {
+        display: block;
     }
 
     body.guide-attention .new-user-guide::before {
@@ -2617,13 +2640,123 @@ li.editing .item-drag-handle {
     }
 
     .right-panel {
-        flex: 1;
+        flex: 0 0 auto;
+        width: 100%;
+        max-width: none;
         min-height: 0;
     }
 
-    body.tag-mode .right-panel {
-        top: auto;
-        bottom: 12px;
+    .list-body {
+        flex: 0 0 auto;
+        overflow: visible;
+        max-height: none;
+        padding-right: 0;
+    }
+
+    li,
+    li .drag-handle,
+    li .item-text,
+    li .category-title {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+    }
+
+    li .drag-handle {
+        touch-action: none;
+    }
+
+    .backup-hint {
+        flex: 0 0 auto;
+        margin-top: 12px;
+        padding-bottom: 18px;
+    }
+
+    body.teaching-mode .backup-hint {
+        display: none;
+    }
+
+    body.tag-mode .tag-mode-panel {
+        flex: 0 0 auto;
+        width: 100%;
+        padding: 0;
+    }
+
+    body.tag-mode .tag-tools {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+
+    body.tag-mode .pause-tags,
+    body.tag-mode .draw-tag {
+        width: 100%;
+    }
+
+    body.tag-mode .draw-tag {
+        position: static;
         transform: none;
+        padding: 10px 16px;
+        font-size: 16px;
+        z-index: auto;
+    }
+
+    body.tag-mode .motion-speed {
+        grid-column: 1 / -1;
+        justify-content: center;
+        width: 100%;
+        order: 2;
+    }
+
+    body.tag-mode .tag-mode-hint {
+        position: static;
+        grid-column: 1 / -1;
+        order: 3;
+        transform: none;
+        width: 100%;
+        text-align: center;
+    }
+
+    body.tag-mode .tag-board {
+        min-height: 58vh;
+        margin-bottom: 14px;
+    }
+
+    body.tag-mode .mystery-tag {
+        width: 70px;
+        height: 38px;
+        font-size: 17px;
+    }
+
+    body.tag-mode .right-panel {
+        position: static;
+        top: auto;
+        right: auto;
+        bottom: auto;
+        transform: none;
+        width: 100%;
+        max-height: none;
+        padding: 12px;
+        border-right: 1px solid #33335a;
+        border-radius: 14px;
+    }
+
+    body.tag-mode .right-panel .list-header,
+    body.tag-mode .right-panel.drawer-open .list-header {
+        writing-mode: horizontal-tb;
+        justify-content: space-between;
+        border-bottom: 1px solid #2a2a4a;
+        padding: 8px 4px;
+    }
+
+    body.tag-mode .right-panel:not(.drawer-open) .header-right,
+    body.tag-mode .right-panel:not(.drawer-open) .list-body,
+    body.tag-mode .right-panel:not(.drawer-open) .list-footer {
+        display: flex;
+    }
+
+    body.tag-mode .right-panel:not(.drawer-open) .list-body {
+        display: block;
     }
 }

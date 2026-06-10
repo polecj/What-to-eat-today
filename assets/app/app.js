@@ -456,6 +456,10 @@ function hideResultConfirm() {
     toggleBtn.style.display = 'none';
 }
 
+function clearPickHighlight() {
+    document.querySelectorAll('li.highlight').forEach(el => el.classList.remove('highlight'));
+}
+
 function toggleResult() {
     resultHidden = true;
     const resultEl = document.getElementById('result');
@@ -463,6 +467,7 @@ function toggleResult() {
     resultEl.classList.add('hidden-result');
     latestResultText = '';
     hideResultConfirm();
+    clearPickHighlight();
     if (document.body.classList.contains('teaching-mode') && teachingStep === 6) {
         teachingConfirmDone = true;
         document.getElementById('teachingNextBtn')?.classList.add('teaching-highlight');
@@ -510,12 +515,13 @@ function randomBetween(min, max) {
 }
 
 function createTagLayout() {
+    const isMobile = window.matchMedia?.('(max-width: 640px)').matches;
     tagLayout = items.map((_, index) => ({
         index,
-        left: randomBetween(16, 70),
-        top: randomBetween(16, 68),
-        rotate: randomBetween(-38, 38),
-        scale: randomBetween(0.92, 1.2),
+        left: isMobile ? randomBetween(4, 78) : randomBetween(16, 70),
+        top: isMobile ? randomBetween(6, 86) : randomBetween(16, 68),
+        rotate: isMobile ? randomBetween(-24, 24) : randomBetween(-38, 38),
+        scale: isMobile ? randomBetween(0.78, 1.05) : randomBetween(0.92, 1.2),
         hue: Math.floor(randomBetween(165, 285)),
         z: index + Math.floor(randomBetween(0, 20)),
         vx: randomBetween(-90, 90) || 55,
@@ -586,7 +592,7 @@ function stopTagMotion(withInertia = false) {
     tagMotionOn = false;
     document.body.classList.remove('tag-motion-on');
     const pauseBtn = document.getElementById('pauseTagsBtn');
-    if (pauseBtn) pauseBtn.textContent = '开始';
+    if (pauseBtn) pauseBtn.textContent = '让标签动起来！';
     if (tagMotionFrame) cancelAnimationFrame(tagMotionFrame);
     tagMotionFrame = null;
 
@@ -922,12 +928,20 @@ function openImportFile() {
     input.click();
 }
 
+function resetImportDialogActions() {
+    const mergeBtn = document.getElementById('mergeImportBtn');
+    if (mergeBtn) mergeBtn.disabled = false;
+    mergeBtn?.classList.remove('teaching-highlight');
+    document.getElementById('overwriteImportBtn')?.classList.remove('teaching-highlight');
+}
+
 function handleImportFile(file) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
         try {
             pendingImportData = parseImportData(String(reader.result || ''));
+            resetImportDialogActions();
             document.getElementById('importDialogText').textContent = `将导入 ${pendingImportData.items.length} 项。请选择导入方式。`;
             document.getElementById('importDialogOverlay').classList.add('show');
         } catch (err) {
@@ -952,6 +966,7 @@ function mergeCategoryOrder(importedOrder) {
 
 function applyImport(mode) {
     if (!pendingImportData) return;
+    const isTeachingMockImport = pendingImportData.teachingMock === true;
     undoImportState = createImportUndoSnapshot();
     backupBeforeImport();
 
@@ -980,11 +995,15 @@ function applyImport(mode) {
     if (currentMode === 'tags') renderTagBoard();
     markListChanged();
     showImportUndoPrompt();
+    if (isTeachingMockImport && document.body.classList.contains('teaching-mode') && teachingStep === 7) {
+        completeTeachingMockImport();
+    }
 }
 
 function cancelImport() {
     pendingImportData = null;
     document.getElementById('importDialogOverlay').classList.remove('show');
+    resetImportDialogActions();
 }
 
 // ---------- 分享码 ----------
@@ -1728,7 +1747,7 @@ function updateTeachingInputLock() {
 
     const editableCurrentStep = teachingStep === teachingLatestStep;
     categoryInput.disabled = !(editableCurrentStep && teachingStep === 1 && !isTeachingStepComplete());
-    nameInput.disabled = !(editableCurrentStep && teachingStep === 2 && !isTeachingStepComplete());
+    nameInput.disabled = !(editableCurrentStep && (teachingStep === 2 || teachingStep === 3) && !isTeachingStepComplete());
     if (addBtn) addBtn.disabled = !(editableCurrentStep && teachingStep === 3 && !isTeachingStepComplete());
     if (pickBtn) pickBtn.disabled = !(editableCurrentStep && teachingStep === 5 && !isTeachingStepComplete());
     const toggleResultBtn = document.getElementById('toggleResultBtn');
@@ -1817,16 +1836,13 @@ function flashTeachingReturnButton() {
     backBtn.classList.add('teaching-return-flash');
 }
 
-function addTeachingMockImportItems() {
+function getTeachingMockImportData() {
     const mockItems = ['甜点 提拉米苏', '甜点 芋泥蛋糕', '夜宵 烤冷面', '饮品 蜂蜜柚子茶'];
-    mockItems.forEach(item => {
-        if (!items.some(existing => existing.trim().toLowerCase() === item.toLowerCase())) {
-            insertItemByTime(item);
-        }
-    });
-    sortItems(false);
-    tagLayout = [];
-    render();
+    return {
+        items: mockItems,
+        categoryOrder: ['甜点', '夜宵', '饮品'],
+        teachingMock: true
+    };
 }
 
 function openTeachingMockImport() {
@@ -1842,8 +1858,23 @@ function closeTeachingMockImport() {
 function applyTeachingMockImport() {
     if (!document.body.classList.contains('teaching-mode') || teachingStep !== 7) return;
     closeTeachingMockImport();
-    addTeachingMockImportItems();
+    pendingImportData = getTeachingMockImportData();
+    const dialogText = document.getElementById('importDialogText');
+    dialogText.innerHTML = `将导入 <strong>${pendingImportData.items.length} 项</strong>。<br><strong>合并导入</strong>：保留当前教学列表，只把文件里的新项目追加进来。<br><strong>覆盖导入</strong>：清空当前列表，完全换成文件里的内容，适合恢复备份。<br>为了演示“接收一整份分享列表”的效果，这里请点击 <strong>覆盖导入</strong>。`;
+    document.getElementById('importDialogOverlay').classList.add('show');
+    const mergeBtn = document.getElementById('mergeImportBtn');
+    if (mergeBtn) mergeBtn.disabled = true;
+    document.getElementById('overwriteImportBtn')?.classList.add('teaching-highlight');
+}
+
+function completeTeachingMockImport() {
     teachingMockImportDone = true;
+    undoImportState = null;
+    hasUnsavedExport = false;
+    hideImportUndoPrompt();
+    updateExportStatus();
+    document.getElementById('exportReminder')?.classList.remove('show');
+    resetImportDialogActions();
     document.getElementById('teachingNextBtn')?.classList.add('teaching-highlight');
     updateTeachingNextState();
 }
@@ -1886,6 +1917,17 @@ function highlightTeachingFeature(featureKeys) {
 
 function highlightTeachingCategory(category) {
     document.querySelector(`li.category[data-category="${CSS.escape(category)}"] .category-title`)?.classList.add('teaching-highlight');
+}
+
+function openSettingsMenuForTeaching(highlightId) {
+    setTimeout(() => {
+        const settingsWrap = document.querySelector('.settings-wrap');
+        const settingsMenu = document.getElementById('settingsMenu');
+        settingsWrap?.classList.add('open');
+        settingsMenu?.classList.add('open');
+        document.getElementById('settingsBtn')?.classList.add('teaching-highlight');
+        document.getElementById(highlightId)?.classList.add('teaching-highlight');
+    }, 0);
 }
 
 function setTeachingStep(step) {
@@ -1999,7 +2041,7 @@ function setTeachingStep(step) {
         closeTeachingInlineEdit();
         kicker.textContent = '7';
         title.textContent = '模拟导入分享列表';
-        desc.innerHTML = '导入适合接收别人分享的待抽列表，也方便在不同设备间迁移。这里用模拟窗口演示：请先点击待抽列表右上角的 <strong>☰</strong>，再点击 <strong>导入JSON</strong>，随后选择金光提示的 <strong>example-list.json</strong>。';
+        desc.innerHTML = '导入适合接收别人分享的待抽列表，也方便在不同设备间迁移。这里用模拟窗口演示：请先点击待抽列表右上角的 <strong>☰</strong>，菜单打开后点击金光提示的 <strong>导入JSON</strong>，随后选择 <strong>example-list.json</strong>，再按说明选择导入方式。';
         nextBtn.textContent = '下一步';
         if (!teachingMockImportDone) {
             document.getElementById('settingsBtn')?.classList.add('teaching-highlight');
@@ -2010,14 +2052,7 @@ function setTeachingStep(step) {
 
     if (step === 8) {
         closeTeachingInlineEdit();
-        var settingsWrap = document.querySelector('.settings-wrap');
-        var settingsMenu = document.getElementById('settingsMenu');
-        settingsWrap?.classList.remove('open');
-        settingsMenu?.classList.remove('open');
-        settingsWrap?.classList.add('open');
-        settingsMenu?.classList.add('open');
-        document.getElementById('settingsBtn')?.classList.add('teaching-highlight');
-        document.getElementById('shareCodeGenBtn')?.classList.add('teaching-highlight');
+        openSettingsMenuForTeaching('shareCodeGenBtn');
         kicker.textContent = '8';
         title.textContent = '认识分享码';
         desc.innerHTML = '除了导出 JSON 文件，也可以生成一段分享码，复制到其他设备就能导入同样的列表。分享码是一段纯文本，方便通过聊天软件发送以及备份。';
@@ -2039,7 +2074,7 @@ function setTeachingStep(step) {
     if (step === 10) {
         kicker.textContent = '10';
         title.textContent = '手动调整顺序';
-        desc.innerHTML = '你可以拖动待抽列表里的分类或同类别条目，手动调整顺序。拖动时，蓝色横线会提示即将插入的位置。试试看也没关系，不操作也可以继续。';
+        desc.innerHTML = '你可以拖动待抽列表里的分类或同类别条目，手动调整顺序。电脑端直接拖动；手机端可以长按分类、条目空白处或拖动手柄后再拖动。拖动时，蓝色横线会提示即将插入的位置。试试看也没关系，不操作也可以继续。';
         nextBtn.textContent = '下一步';
         document.querySelectorAll('#list .drag-handle').forEach(handle => handle.classList.add('teaching-highlight'));
         updateTeachingNextState();
@@ -2292,7 +2327,11 @@ function setupSplitInput(categoryId, nameId, submitFn) {
     });
 
     nameInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') submitFn();
+        if (e.key !== 'Enter') return;
+        if (document.body.classList.contains('teaching-mode') && teachingStep !== 3) return;
+        e.preventDefault();
+        e.stopPropagation();
+        submitFn();
     });
 }
 
@@ -2445,6 +2484,9 @@ document.getElementById('settingsBtn').addEventListener('click', function (e) {
     const menu = document.getElementById('settingsMenu');
     const isOpen = menu.classList.toggle('open');
     this.closest('.settings-wrap').classList.toggle('open', isOpen);
+    if (document.body.classList.contains('teaching-import-step') && !teachingMockImportDone) {
+        document.getElementById('importBtn')?.classList.toggle('teaching-highlight', isOpen);
+    }
 });
 document.getElementById('bulkMenuBtn').addEventListener('click', function (e) {
     e.stopPropagation();
@@ -2541,21 +2583,127 @@ document.getElementById('drawScopeAllBtn').addEventListener('click', function (e
     let dragCategory = '';
     let dragItemIndex = -1;
     let dragItemCategory = '';
+    let touchDragState = null;
+    let pressFeedbackState = null;
+    const touchDragDelay = 420;
 
-    list.addEventListener('dragstart', function (e) {
-        const categoryLi = e.target.closest('li.category');
-        const itemLi = e.target.closest('li.item-row');
+    function clearPressFeedback() {
+        if (!pressFeedbackState) return;
+        clearTimeout(pressFeedbackState.timer);
+        pressFeedbackState.element.classList.remove('touch-dragging');
+        pressFeedbackState = null;
+    }
 
+    function resetDragState() {
+        clearPressFeedback();
+        list.querySelectorAll('li.drag-insert-before, li.drag-insert-after, li.touch-dragging').forEach(el => {
+            el.classList.remove('drag-insert-before', 'drag-insert-after', 'touch-dragging');
+        });
+        dragCategory = '';
+        dragItemIndex = -1;
+        dragItemCategory = '';
+    }
+
+    function getDragTargetFromHandle(handle) {
+        const categoryLi = handle.closest('li.category');
+        const itemLi = handle.closest('li.item-row');
         if (categoryLi) {
-            dragCategory = categoryLi.dataset.category;
-            categoryLi.classList.add('dragging');
-        } else if (itemLi) {
-            dragItemIndex = parseInt(itemLi.dataset.index);
-            dragItemCategory = itemLi.dataset.category;
-            itemLi.classList.add('dragging');
-        } else {
+            return {
+                type: 'category',
+                element: categoryLi,
+                category: categoryLi.dataset.category
+            };
+        }
+        if (itemLi) {
+            return {
+                type: 'item',
+                element: itemLi,
+                index: parseInt(itemLi.dataset.index),
+                category: itemLi.dataset.category
+            };
+        }
+        return null;
+    }
+
+    function getDragTargetFromPress(target) {
+        if (!target.closest('.drag-handle') && target.closest('button, input, textarea, select, label')) return null;
+        return getDragTargetFromHandle(target);
+    }
+
+    function markDragOver(clientY, target) {
+        list.querySelectorAll('li.drag-insert-before, li.drag-insert-after').forEach(el => el.classList.remove('drag-insert-before', 'drag-insert-after'));
+
+        if (dragCategory) {
+            const li = target?.closest?.('li.category');
+            if (!li || li.dataset.category === dragCategory) return;
+            const rect = li.getBoundingClientRect();
+            li.classList.add(clientY > rect.top + rect.height / 2 ? 'drag-insert-after' : 'drag-insert-before');
             return;
         }
+
+        if (dragItemIndex >= 0) {
+            const li = target?.closest?.('li.item-row');
+            if (!li || li.dataset.category !== dragItemCategory || parseInt(li.dataset.index) === dragItemIndex) return;
+            const rect = li.getBoundingClientRect();
+            li.classList.add(clientY > rect.top + rect.height / 2 ? 'drag-insert-after' : 'drag-insert-before');
+        }
+    }
+
+    function applyDragDrop(target) {
+        if (dragCategory) {
+            const li = target?.closest?.('li.category');
+            if (!li) return false;
+            const insertAfter = li.classList.contains('drag-insert-after');
+            const targetCategory = li.dataset.category;
+            if (targetCategory === dragCategory) return false;
+
+            const groups = buildGroups();
+            const order = groups.map(group => group.category);
+            const fromIndex = order.indexOf(dragCategory);
+            const targetIndex = order.indexOf(targetCategory);
+            if (fromIndex < 0 || targetIndex < 0) return false;
+
+            const [moved] = order.splice(fromIndex, 1);
+            let insertIndex = targetIndex;
+            if (fromIndex < targetIndex) insertIndex--;
+            if (insertAfter) insertIndex++;
+            order.splice(insertIndex, 0, moved);
+            categoryOrder = order;
+            saveCategoryOrder(categoryOrder);
+            suppressNextListAnimation = true;
+            sortItems();
+            markListChanged();
+            return true;
+        }
+
+        if (dragItemIndex >= 0) {
+            const li = target?.closest?.('li.item-row');
+            if (!li || li.dataset.category !== dragItemCategory) return false;
+            const insertAfter = li.classList.contains('drag-insert-after');
+            const targetIndex = parseInt(li.dataset.index);
+            if (moveItemWithinCategory(dragItemIndex, targetIndex, insertAfter)) {
+                tagLayout = [];
+                suppressNextListAnimation = true;
+                render();
+                markListChanged();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    list.addEventListener('dragstart', function (e) {
+        const dragTarget = getDragTargetFromHandle(e.target);
+        if (!dragTarget) return;
+
+        if (dragTarget.type === 'category') {
+            dragCategory = dragTarget.category;
+        } else {
+            dragItemIndex = dragTarget.index;
+            dragItemCategory = dragTarget.category;
+        }
+        dragTarget.element.classList.add('dragging');
 
         e.dataTransfer.effectAllowed = 'move';
         // 设置空数据以允许拖拽（Firefox 需要）
@@ -2570,83 +2718,100 @@ document.getElementById('drawScopeAllBtn').addEventListener('click', function (e
             categoryLi.classList.add('drag-click-skip');
         }
         if (itemLi) itemLi.classList.remove('dragging');
-        list.querySelectorAll('li.drag-insert-before, li.drag-insert-after').forEach(el => el.classList.remove('drag-insert-before', 'drag-insert-after'));
-        dragCategory = '';
-        dragItemIndex = -1;
-        dragItemCategory = '';
+        resetDragState();
     });
 
     list.addEventListener('dragover', function (e) {
-        list.querySelectorAll('li.drag-insert-before, li.drag-insert-after').forEach(el => el.classList.remove('drag-insert-before', 'drag-insert-after'));
-
-        if (dragCategory) {
-            const li = e.target.closest('li.category');
-            if (!li) return;
+        markDragOver(e.clientY, e.target);
+        if (dragCategory || dragItemIndex >= 0) {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
-            if (li.dataset.category !== dragCategory) {
-                const rect = li.getBoundingClientRect();
-                li.classList.add(e.clientY > rect.top + rect.height / 2 ? 'drag-insert-after' : 'drag-insert-before');
-            }
-            return;
-        }
-
-        if (dragItemIndex >= 0) {
-            const li = e.target.closest('li.item-row');
-            if (!li || li.dataset.category !== dragItemCategory) return;
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            if (parseInt(li.dataset.index) !== dragItemIndex) {
-                const rect = li.getBoundingClientRect();
-                li.classList.add(e.clientY > rect.top + rect.height / 2 ? 'drag-insert-after' : 'drag-insert-before');
-            }
         }
     });
 
     list.addEventListener('drop', function (e) {
         e.preventDefault();
+        applyDragDrop(e.target);
+        resetDragState();
+    });
 
-        if (dragCategory) {
-            const li = e.target.closest('li.category');
-            if (!li) return;
-            const insertAfter = li.classList.contains('drag-insert-after');
-            li.classList.remove('drag-insert-before', 'drag-insert-after');
-            const targetCategory = li.dataset.category;
-            if (targetCategory === dragCategory) return;
+    list.addEventListener('pointerdown', function (e) {
+        const dragTarget = getDragTargetFromPress(e.target);
+        if (!dragTarget) return;
 
-            const groups = buildGroups();
-            const order = groups.map(group => group.category);
-            const fromIndex = order.indexOf(dragCategory);
-            const targetIndex = order.indexOf(targetCategory);
-            if (fromIndex < 0 || targetIndex < 0) return;
+        clearPressFeedback();
+        pressFeedbackState = {
+            pointerId: e.pointerId,
+            element: dragTarget.element,
+            startX: e.clientX,
+            startY: e.clientY,
+            timer: setTimeout(() => {
+                if (pressFeedbackState?.pointerId === e.pointerId) {
+                    dragTarget.element.classList.add('touch-dragging');
+                }
+            }, 180)
+        };
 
-            const [moved] = order.splice(fromIndex, 1);
-            let insertIndex = targetIndex;
-            if (fromIndex < targetIndex) insertIndex--;
-            if (insertAfter) insertIndex++;
-            order.splice(insertIndex, 0, moved);
-            categoryOrder = order;
-            saveCategoryOrder(categoryOrder);
-            suppressNextListAnimation = true;
-            sortItems();
-            markListChanged();
+        if (e.pointerType !== 'touch') return;
+
+        touchDragState = {
+            pointerId: e.pointerId,
+            target: dragTarget,
+            startX: e.clientX,
+            startY: e.clientY,
+            active: false,
+            timer: null
+        };
+
+        touchDragState.timer = setTimeout(() => {
+            if (!touchDragState) return;
+            touchDragState.active = true;
+            if (dragTarget.type === 'category') {
+                dragCategory = dragTarget.category;
+            } else {
+                dragItemIndex = dragTarget.index;
+                dragItemCategory = dragTarget.category;
+            }
+            dragTarget.element.classList.add('touch-dragging');
+            dragTarget.element.setPointerCapture?.(e.pointerId);
+        }, touchDragDelay);
+    });
+
+    list.addEventListener('pointermove', function (e) {
+        if (!touchDragState || touchDragState.pointerId !== e.pointerId) return;
+
+        const moved = Math.hypot(e.clientX - touchDragState.startX, e.clientY - touchDragState.startY);
+        if (!touchDragState.active && moved > 10) {
+            clearTimeout(touchDragState.timer);
+            touchDragState = null;
             return;
         }
 
-        if (dragItemIndex >= 0) {
-            const li = e.target.closest('li.item-row');
-            if (!li || li.dataset.category !== dragItemCategory) return;
-            const insertAfter = li.classList.contains('drag-insert-after');
-            li.classList.remove('drag-insert-before', 'drag-insert-after');
-            const targetIndex = parseInt(li.dataset.index);
-            if (moveItemWithinCategory(dragItemIndex, targetIndex, insertAfter)) {
-                tagLayout = [];
-                suppressNextListAnimation = true;
-                render();
-                markListChanged();
-            }
-        }
+        if (!touchDragState.active) return;
+        e.preventDefault();
+        const target = document.elementFromPoint(e.clientX, e.clientY);
+        markDragOver(e.clientY, target);
     });
+
+    function endTouchDrag(e) {
+        if (!touchDragState || touchDragState.pointerId !== e.pointerId) return;
+        clearTimeout(touchDragState.timer);
+
+        if (touchDragState.active) {
+            e.preventDefault();
+            const target = document.elementFromPoint(e.clientX, e.clientY);
+            applyDragDrop(target);
+            touchDragState.target.element.classList.add('drag-click-skip');
+        }
+
+        touchDragState = null;
+        resetDragState();
+    }
+
+    list.addEventListener('pointerup', endTouchDrag);
+    list.addEventListener('pointercancel', endTouchDrag);
+    list.addEventListener('pointerup', clearPressFeedback);
+    list.addEventListener('pointercancel', clearPressFeedback);
 })();
 
 formatAllItems();
