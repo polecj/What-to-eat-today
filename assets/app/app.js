@@ -143,6 +143,8 @@ let drawHistory = loadDrawHistory();
 let drawHistoryCollapsed = true;
 let pickCounts = loadPickCounts();
 let categoriesToAnimate = new Set();
+let categoriesToHighlight = new Set();
+let itemsToHighlight = new Set();
 let teachingItems = [];
 let teachingCategoryOrder = [];
 let savedMainState = null;
@@ -1024,15 +1026,21 @@ function applyImport(mode) {
         items = [...pendingImportData.items];
         categoryOrder = [...pendingImportData.categoryOrder];
     } else {
+        const updatedCategories = new Set();
+        const updatedItems = new Set();
         const seen = new Set(items.map(item => item.trim().toLowerCase()));
         pendingImportData.items.forEach(item => {
             const key = item.trim().toLowerCase();
             if (!seen.has(key)) {
                 items.push(item);
                 seen.add(key);
+                updatedCategories.add(getItemCategory(item));
+                updatedItems.add(item);
             }
         });
         mergeCategoryOrder(pendingImportData.categoryOrder);
+        categoriesToHighlight = updatedCategories;
+        itemsToHighlight = updatedItems;
     }
 
     sortItems(false);
@@ -1248,7 +1256,11 @@ function render() {
     const count = document.getElementById('count');
     const skipListAnimation = suppressNextListAnimation;
     const animateCategories = new Set(categoriesToAnimate);
+    const highlightCategories = new Set(categoriesToHighlight);
+    const highlightItems = new Set(itemsToHighlight);
     categoriesToAnimate.clear();
+    categoriesToHighlight.clear();
+    itemsToHighlight.clear();
     suppressNextListAnimation = false;
     count.textContent = `共 ${items.length} 项`;
 
@@ -1278,7 +1290,7 @@ function render() {
         const collapsed = isCategoryCollapsed(group.category);
         const drawEnabled = isCategoryDrawEnabled(group.category);
         return `
-<li class="category${collapsed ? ' collapsed' : ''}${drawEnabled ? '' : ' draw-disabled'}" draggable="true" data-category="${escapeAttribute(group.category)}">
+<li class="category${collapsed ? ' collapsed' : ''}${drawEnabled ? '' : ' draw-disabled'}${highlightCategories.has(group.category) ? ' import-highlight' : ''}" draggable="true" data-category="${escapeAttribute(group.category)}">
   <span class="drag-handle" title="拖动调整分类顺序">⠿</span>
   <span class="category-arrow">${collapsed ? '▶' : '▼'}</span>
   <span class="category-title">${escapeHtml(group.category)}<span class="pick-count">${getCategoryPickTotal(group.items) > 0 ? ` 抽中${getCategoryPickTotal(group.items)}次` : ''}</span></span>
@@ -1292,7 +1304,7 @@ function render() {
 ${collapsed ? '' : group.items.map(({ item, index }) => {
         const skipItemAnimation = skipListAnimation || !animateCategories.has(group.category);
         return `
-<li class="item-row${skipItemAnimation ? ' no-enter-animation' : ''}${drawEnabled ? '' : ' draw-disabled'}" draggable="true" data-index="${index}" data-category="${escapeAttribute(group.category)}">
+<li class="item-row${skipItemAnimation ? ' no-enter-animation' : ''}${drawEnabled ? '' : ' draw-disabled'}${highlightItems.has(item) ? ' import-highlight' : ''}" draggable="true" data-index="${index}" data-category="${escapeAttribute(group.category)}">
   <span class="drag-handle item-drag-handle" title="拖动调整项目顺序">⠿</span>
   <span class="item-text">${escapeHtml(item)}<span class="pick-count">${formatPickCount(item)}</span></span>
   ${currentMode === 'tags' ? '' : `<button class="edit" data-index="${index}" title="编辑">✎</button>
