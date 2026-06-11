@@ -90,13 +90,18 @@
         <!-- 右侧：待抽列表 -->
         <div class="right-panel">
             <div id="listHeader" class="list-header">
-                <strong><span class="arrow">▼</span>待抽列表</strong>
+                <strong><span class="arrow">▼</span>你的心头好</strong>
                 <span class="header-right">
                     <button class="draw-scope-all-btn active" id="drawScopeAllBtn" title="抽取范围全选 / 全不选">全选</button>
                     <button class="expand-all-btn" id="expandAllBtn" title="全部展开">全展开</button>
                     <span class="settings-wrap menu-wrap">
                         <button class="settings-btn menu-btn" id="settingsBtn" title="列表设置">☰</button>
                         <span id="settingsMenu" class="settings-menu menu-dropdown">
+                            <label class="draw-duration-setting menu-control" title="普通模式抽取动画时长">
+                                <span>抽取时间</span>
+                                <span class="draw-duration-input-wrap"><input id="drawDurationInput" type="text" inputmode="decimal" autocomplete="off"><span>s</span></span>
+                            </label>
+                            <span class="menu-divider"></span>
                             <button class="bulk-menu-btn menu-item" id="bulkMenuBtn" title="批量编辑分类">批量编辑</button>
                             <span class="menu-divider"></span>
                             <button class="import-btn menu-item" id="importBtn" title="导入JSON文件">导入JSON</button>
@@ -235,7 +240,7 @@
 
     <div id="toast" class="toast"></div>
 
-    <div class="version-label">061021</div>
+    <div class="version-label">061102</div>
 
     <script src="assets/app/app.js"></script>
 

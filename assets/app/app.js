@@ -5,6 +5,10 @@ const UNCHECKED_CATEGORIES_KEY = 'picker_unchecked_categories';
 const DRAW_HISTORY_KEY = 'picker_draw_history';
 const PICK_COUNTS_KEY = 'picker_pick_counts';
 const GUIDE_PROMPT_DISABLED_KEY = 'picker_guide_prompt_disabled';
+const DRAW_DURATION_KEY = 'picker_draw_duration_seconds';
+const DRAW_DURATION_DEFAULT = 2.5;
+const DRAW_DURATION_MIN = 1;
+const DRAW_DURATION_MAX = 8;
 const UNCATEGORIZED = '未分类';
 
 // 从 localStorage 读取
@@ -115,6 +119,33 @@ function setGuidePromptDisabled() {
     localStorage.setItem(GUIDE_PROMPT_DISABLED_KEY, '1');
 }
 
+function loadDrawDurationSeconds() {
+    const value = parseFloat(localStorage.getItem(DRAW_DURATION_KEY));
+    if (!Number.isFinite(value)) return DRAW_DURATION_DEFAULT;
+    return Math.min(DRAW_DURATION_MAX, Math.max(DRAW_DURATION_MIN, Math.round(value * 10) / 10));
+}
+
+function saveDrawDurationSeconds(value) {
+    if (isTeachingStorageActive()) return;
+    localStorage.setItem(DRAW_DURATION_KEY, value.toFixed(1));
+}
+
+function normalizeDrawDurationInput(raw, fallback = drawDurationSeconds) {
+    const normalized = String(raw || '').replace(/[^\d.]/g, '');
+    const match = normalized.match(/^(\d*)(?:\.(\d?))?/);
+    let next = match ? `${match[1]}${match[2] !== undefined ? '.' + match[2] : ''}` : '';
+    if (next === '' || next === '.') return fallback;
+    let value = parseFloat(next);
+    if (!Number.isFinite(value)) value = fallback;
+    value = Math.min(DRAW_DURATION_MAX, Math.max(DRAW_DURATION_MIN, Math.round(value * 10) / 10));
+    return value;
+}
+
+function updateDrawDurationInput() {
+    const input = document.getElementById('drawDurationInput');
+    if (input) input.value = drawDurationSeconds.toFixed(1);
+}
+
 let items = loadItems();
 let categoryOrder = loadCategoryOrder();
 let collapsedCategories = loadCollapsedCategories();
@@ -142,9 +173,11 @@ let bulkEditCategory = '';
 let drawHistory = loadDrawHistory();
 let drawHistoryCollapsed = true;
 let pickCounts = loadPickCounts();
+let drawDurationSeconds = loadDrawDurationSeconds();
 let categoriesToAnimate = new Set();
 let categoriesToHighlight = new Set();
 let itemsToHighlight = new Set();
+let newItemsUntilNextDraw = new Set();
 let teachingItems = [];
 let teachingCategoryOrder = [];
 let savedMainState = null;
@@ -788,7 +821,7 @@ function revealTag(index, shouldRecord = false) {
         card.style.transform = layout ? `rotate(${layout.rotate}deg)` : '';
         overlay.classList.remove('dimming');
         overlay.classList.add('show');
-        if (shouldRecord) { addDrawHistory(items[index] || ''); incrementPickCount(items[index] || ''); }
+        if (shouldRecord) { newItemsUntilNextDraw.clear(); addDrawHistory(items[index] || ''); incrementPickCount(items[index] || ''); }
     }
 
     if (!sourceTag) {
@@ -891,7 +924,8 @@ function createImportUndoSnapshot() {
         collapsedCategories: [...collapsedCategories],
         uncheckedCategories: [...uncheckedCategories],
         hasUnsavedExport,
-        listSearchQuery
+        listSearchQuery,
+        newItemsUntilNextDraw: [...newItemsUntilNextDraw]
     };
 }
 
@@ -903,6 +937,7 @@ function undoImport() {
     uncheckedCategories = [...undoImportState.uncheckedCategories];
     hasUnsavedExport = undoImportState.hasUnsavedExport;
     listSearchQuery = undoImportState.listSearchQuery;
+    newItemsUntilNextDraw = new Set(undoImportState.newItemsUntilNextDraw || []);
     undoImportState = null;
     document.getElementById('listSearchInput').value = listSearchQuery;
     hideImportUndoPrompt();
@@ -974,6 +1009,54 @@ function parseImportData(text) {
     return { items: importedItems, categoryOrder: importedOrder };
 }
 
+function getImportSummary(importData) {
+    const seenCurrent = new Set(items.map(item => item.trim().toLowerCase()));
+    const seenImport = new Set();
+    const newItems = [];
+    let duplicateCount = 0;
+
+    importData.items.forEach(item => {
+        const key = item.trim().toLowerCase();
+        if (seenCurrent.has(key) || seenImport.has(key)) {
+            duplicateCount++;
+            return;
+        }
+        seenImport.add(key);
+        newItems.push(item);
+    });
+
+    const newCategories = [...new Set(newItems.map(getItemCategory))];
+    return {
+        total: importData.items.length,
+        newItems,
+        newCount: newItems.length,
+        duplicateCount,
+        newCategories,
+        categoryCount: newCategories.length
+    };
+}
+
+function formatImportDialogHtml(summary) {
+    const categoryText = summary.categoryCount > 0 ? summary.newCategories.join('、') : '无新增类别';
+    return `将导入 <strong>${summary.total} 项</strong>。<br>` +
+        `合并导入预计新增 <strong>${summary.newCount} 项</strong>，跳过重复 <strong>${summary.duplicateCount} 项</strong>，涉及 <strong>${summary.categoryCount} 个类别</strong>。<br>` +
+        `<span class="import-preview-categories">${escapeHtml(categoryText)}</span><br>` +
+        '请选择导入方式。';
+}
+
+function openImportDialog(importData) {
+    pendingImportData = importData;
+    resetImportDialogActions();
+    document.getElementById('importDialogText').innerHTML = formatImportDialogHtml(getImportSummary(importData));
+    document.getElementById('importDialogOverlay').classList.add('show');
+}
+
+function formatImportResultToast(summary, mode) {
+    if (mode === 'overwrite') return `覆盖导入完成：共 ${summary.total} 项`;
+    if (summary.newCount === 0) return `没有新增项目，已跳过重复 ${summary.duplicateCount} 项`;
+    return `导入完成：新增 ${summary.newCount} 项，跳过重复 ${summary.duplicateCount} 项，涉及 ${summary.categoryCount} 个类别`;
+}
+
 function openImportFile() {
     const input = document.getElementById('importFileInput');
     input.value = '';
@@ -992,10 +1075,7 @@ function handleImportFile(file) {
     const reader = new FileReader();
     reader.onload = () => {
         try {
-            pendingImportData = parseImportData(String(reader.result || ''));
-            resetImportDialogActions();
-            document.getElementById('importDialogText').textContent = `将导入 ${pendingImportData.items.length} 项。请选择导入方式。`;
-            document.getElementById('importDialogOverlay').classList.add('show');
+            openImportDialog(parseImportData(String(reader.result || '')));
         } catch (err) {
             alert(err.message || '导入失败，请检查文件格式');
         }
@@ -1019,12 +1099,14 @@ function mergeCategoryOrder(importedOrder) {
 function applyImport(mode) {
     if (!pendingImportData) return;
     const isTeachingMockImport = pendingImportData.teachingMock === true;
+    const summary = getImportSummary(pendingImportData);
     undoImportState = createImportUndoSnapshot();
     backupBeforeImport();
 
     if (mode === 'overwrite') {
         items = [...pendingImportData.items];
         categoryOrder = [...pendingImportData.categoryOrder];
+        newItemsUntilNextDraw = new Set();
     } else {
         const updatedCategories = new Set();
         const updatedItems = new Set();
@@ -1041,6 +1123,7 @@ function applyImport(mode) {
         mergeCategoryOrder(pendingImportData.categoryOrder);
         categoriesToHighlight = updatedCategories;
         itemsToHighlight = updatedItems;
+        newItemsUntilNextDraw = new Set(updatedItems);
     }
 
     sortItems(false);
@@ -1053,6 +1136,7 @@ function applyImport(mode) {
     if (currentMode === 'tags') renderTagBoard();
     markListChanged();
     showImportUndoPrompt();
+    showToast(formatImportResultToast(summary, mode));
     if (isTeachingMockImport && document.body.classList.contains('teaching-mode') && teachingStep === 7) {
         completeTeachingMockImport();
     }
@@ -1143,10 +1227,8 @@ function handleShareCodeImport() {
     errorEl.classList.remove('show');
     try {
         var decoded = decodeShareCode(raw);
-        pendingImportData = parseImportData(decoded);
         closeShareCodeImport();
-        document.getElementById('importDialogText').textContent = '将导入 ' + pendingImportData.items.length + ' 项。请选择导入方式。';
-        document.getElementById('importDialogOverlay').classList.add('show');
+        openImportDialog(parseImportData(decoded));
     } catch (err) {
         errorEl.textContent = err.message || '导入失败';
         errorEl.classList.add('show');
@@ -1379,6 +1461,7 @@ function getCategoryPickTotal(categoryItems) {
 }
 
 function formatPickCount(item) {
+    if (newItemsUntilNextDraw.has(item)) return '<span class="new-item-mark"> 新增</span>';
     const count = pickCounts[item] || 0;
     return count > 0 ? ` 抽中${count}次` : '';
 }
@@ -1738,7 +1821,8 @@ function pick() {
     }
     hideResultConfirm();
 
-    const totalRolls = 5 + Math.floor(Math.random() * 6); // 5~10 次
+    const totalRolls = Math.max(8, Math.round(drawDurationSeconds * 8));
+    const drawDurationMs = drawDurationSeconds * 1000;
     let roll = 0;
     let lastIdx = -1;
 
@@ -1771,6 +1855,7 @@ function pick() {
         if (roll >= totalRolls) {
             // 最终结果
             setResultText('🎯 ' + items[lastIdx], true, 260);
+            newItemsUntilNextDraw.clear();
             addDrawHistory(items[lastIdx]);
             incrementPickCount(items[lastIdx]);
             setTimeout(clearResultBlur, 120);
@@ -1795,9 +1880,9 @@ function pick() {
             return;
         }
 
-        // 更快的滚动间隔：约 35ms → 105ms
         const delayProgress = roll / totalRolls;
-        const delay = 30 + delayProgress * 75;
+        const averageDelay = drawDurationMs / Math.max(1, totalRolls - 1);
+        const delay = Math.max(35, averageDelay * (0.45 + delayProgress * 1.1));
         setTimeout(doRoll, delay);
     }
 
@@ -2288,7 +2373,8 @@ function enterTeachingMode() {
         collapsedCategories: [...collapsedCategories],
         uncheckedCategories: [...uncheckedCategories],
         listSearchQuery,
-        hasUnsavedExport
+        hasUnsavedExport,
+        newItemsUntilNextDraw: [...newItemsUntilNextDraw]
     };
     teachingItems = [];
     teachingCategoryOrder = [];
@@ -2303,8 +2389,10 @@ function enterTeachingMode() {
     categoryOrder = teachingCategoryOrder;
     collapsedCategories = [];
     uncheckedCategories = [];
+    newItemsUntilNextDraw = new Set();
     listSearchQuery = '';
     hasUnsavedExport = false;
+    updateDrawDurationInput();
     switchMode('normal');
     document.body.classList.add('teaching-mode');
     document.getElementById('listSearchInput').value = '';
@@ -2316,6 +2404,14 @@ function enterTeachingMode() {
 
 function openTeachingExitDialog() {
     document.getElementById('teachingExitOverlay')?.classList.add('show');
+}
+
+function handleTeachingBack() {
+    if (teachingStep === 0) {
+        transitionToHomeMode();
+        return;
+    }
+    openTeachingExitDialog();
 }
 
 function closeTeachingExitDialog() {
@@ -2332,6 +2428,7 @@ function exitTeachingMode() {
         uncheckedCategories = savedMainState.uncheckedCategories || [];
         listSearchQuery = savedMainState.listSearchQuery;
         hasUnsavedExport = savedMainState.hasUnsavedExport;
+        newItemsUntilNextDraw = new Set(savedMainState.newItemsUntilNextDraw || []);
         savedMainState = null;
     }
     document.getElementById('listSearchInput').value = listSearchQuery;
@@ -2459,7 +2556,7 @@ document.getElementById('neverShowGuideBtn').addEventListener('click', function 
     e.stopPropagation();
     disableGuideAttention();
 });
-document.getElementById('backFromTeachingBtn').addEventListener('click', openTeachingExitDialog);
+document.getElementById('backFromTeachingBtn').addEventListener('click', handleTeachingBack);
 document.getElementById('cancelTeachingExitBtn').addEventListener('click', closeTeachingExitDialog);
 document.getElementById('confirmTeachingExitBtn').addEventListener('click', function () {
     closeTeachingExitDialog();
@@ -2513,6 +2610,19 @@ document.getElementById('pauseTagsBtn').addEventListener('click', toggleTagPause
 document.getElementById('motionSpeedInput').addEventListener('input', function () {
     tagMotionSpeed = parseFloat(this.value) || 1;
 });
+document.getElementById('drawDurationInput').addEventListener('input', function () {
+    const cleaned = this.value
+        .replace(/[^\d.]/g, '')
+        .replace(/(\..*)\./g, '$1')
+        .replace(/^(\d*\.\d).+$/, '$1');
+    if (this.value !== cleaned) this.value = cleaned;
+});
+document.getElementById('drawDurationInput').addEventListener('change', function () {
+    drawDurationSeconds = normalizeDrawDurationInput(this.value);
+    saveDrawDurationSeconds(drawDurationSeconds);
+    updateDrawDurationInput();
+});
+updateDrawDurationInput();
 document.getElementById('tagBoard').addEventListener('click', hideTagReveal);
 document.getElementById('tagRevealOverlay').addEventListener('click', hideTagReveal);
 document.getElementById('formatHelpBtn').addEventListener('click', function () {

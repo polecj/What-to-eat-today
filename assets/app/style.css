@@ -644,6 +644,7 @@ body.teaching-mode .right-panel {
     z-index: 120;
     transition: opacity 0.18s, transform 0.18s;
     font-size: 13px;
+    white-space: nowrap;
 }
 
 .toast.show {
@@ -748,6 +749,14 @@ body.teaching-mode .right-panel {
 .bulk-edit-card p {
     margin-bottom: 18px;
     line-height: 1.6;
+}
+
+.import-preview-categories {
+    display: inline-block;
+    max-width: 100%;
+    margin-top: 4px;
+    color: #f6d266;
+    word-break: break-all;
 }
 
 .bulk-edit-card textarea {
@@ -2117,6 +2126,36 @@ button.pick:disabled {
     cursor: pointer;
 }
 
+.settings-menu .menu-control {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    color: #e2e8f0;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.draw-duration-input-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: #8f9bb3;
+}
+
+.draw-duration-input-wrap input {
+    width: 42px;
+    padding: 3px 5px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(17, 25, 54, 0.9);
+    color: #e0e0e0;
+    font-size: 13px;
+    text-align: right;
+}
+
 .settings-menu .menu-item:hover {
     background: rgba(255, 255, 255, 0.08);
 }
@@ -2542,6 +2581,10 @@ li .category-title .pick-count {
     color: #8f9bb3;
     font-weight: 400;
     white-space: nowrap;
+}
+
+li .item-text .new-item-mark {
+    color: #f6d266;
 }
 
 li .item-edit-group {
